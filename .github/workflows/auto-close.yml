@@ -1,5 +1,5 @@
-# .github/workflows/auto-merge.yml
-name: Auto Merge
+# .github/workflows/auto-close.yml
+name: Auto Close
 
 on:
   workflow_run:
@@ -8,13 +8,12 @@ on:
       - completed
 
 permissions:
-  contents: write
   pull-requests: write
   actions: read
 
 jobs:
-  merge:
-    if: github.event.workflow_run.conclusion == 'success'
+  close:
+    if: github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
     steps:
       - name: Find open PR
@@ -33,12 +32,12 @@ jobs:
           echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           echo "Found PR #$PR_NUMBER for branch $BRANCH"
 
-      - name: Merge PR
+      - name: Close PR
         if: steps.pr.outputs.number
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "CI passed — merging PR #${{ steps.pr.outputs.number }}"
-          gh pr merge ${{ steps.pr.outputs.number }} \
+          echo "CI failed — closing PR #${{ steps.pr.outputs.number }}"
+          gh pr close ${{ steps.pr.outputs.number }} \
             --repo "${{ github.repository }}" \
-            --merge --admin --delete-branch
+            --comment "CI check failed. Closing automatically."
