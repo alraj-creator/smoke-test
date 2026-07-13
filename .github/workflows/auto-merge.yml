@@ -1,0 +1,58 @@
+# .github/workflows/auto-merge.yml
+name: Auto Merge or Close
+
+on:
+  workflow_run:
+    workflows: ["CI Check"]
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  merge-or-close:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get PR number
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(gh api \
+            "repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/artifacts" \
+            --jq '.total_count' 2>/dev/null || echo "")
+
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          PR_NUMBER=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --head "$BRANCH" \
+            --base main \
+            --state open \
+            --json number \
+            --jq '.[0].number')
+
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "Found PR #$PR_NUMBER for branch $BRANCH"
+
+      - name: Merge PR on success
+        if: github.event.workflow_run.conclusion == 'success' && steps.pr.outputs.number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "CI passed — merging PR #${{ steps.pr.outputs.number }}"
+          gh pr merge ${{ steps.pr.outputs.number }} \
+            --repo "${{ github.repository }}" \
+            --merge --admin --delete-branch
+
+      - name: Close PR on failure
+        if: github.event.workflow_run.conclusion == 'failure' && steps.pr.outputs.number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "CI failed — closing PR #${{ steps.pr.outputs.number }}"
+          gh pr close ${{ steps.pr.outputs.number }} \
+            --repo "${{ github.repository }}" \
+            --comment "CI check failed. Closing automatically."
