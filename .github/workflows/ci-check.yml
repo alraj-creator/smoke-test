@@ -16,4 +16,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run checks
-        run: echo "CI checks passed"
+        run: |
+          if echo "${{ github.head_ref }}" | grep -q "fail"; then
+            echo "CI check failed!"
+            exit 1
+          fi
+          echo "CI checks passed"
