@@ -38,4 +38,4 @@ jobs:
             echo "PR #${EXISTING_PR} already exists"
           fi
 
-          gh pr merge --merge --auto "$BRANCH"
+          gh pr merge --merge "$BRANCH" --admin --delete-branch
