@@ -23,18 +23,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           BRANCH="${{ github.event.check_suite.head_branch }}"
-          PR_NUMBER=$(gh pr list \
+          PR=$(gh pr list \
             --repo "${{ github.repository }}" \
             --head "$BRANCH" \
             --base main \
             --state open \
-            --json number \
-            --jq '.[0].number')
+            --json number,state \
+            --jq '.[0]')
+          PR_NUMBER=$(echo "$PR" | jq -r '.number // empty')
+          PR_STATE=$(echo "$PR" | jq -r '.state // empty')
           echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "Found PR #$PR_NUMBER for branch $BRANCH"
+          echo "state=$PR_STATE" >> "$GITHUB_OUTPUT"
+          echo "PR #$PR_NUMBER (state: $PR_STATE) for branch $BRANCH"
 
       - name: Merge PR
-        if: steps.pr.outputs.number
+        if: steps.pr.outputs.number && steps.pr.outputs.state == 'OPEN'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
